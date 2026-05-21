@@ -110,14 +110,24 @@
 
         <div class="section-title mt-4">🔒 Security & Access Credentials</div>
 
-        <div class="mb-3">
-            <label class="form-label">Email Address (System Username ID)</label>
-            <input type="email" name="email" class="form-control" placeholder="name@example.com" required>
-        </div>
+            <div class="mb-3">
+                <label class="form-label">Email Address (System Username ID)</label>
+                <input type="email" name="email" class="form-control" placeholder="name@example.com" required>
+            </div>
 
-        <div class="mb-3">
+        <div class="mb-3 position-relative">
             <label class="form-label">Account Master Password</label>
-            <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            <input type="password" id="reg_password" name="password" class="form-control" placeholder="••••••••" required autocomplete="new-password">
+            
+            <div id="password-requirements" class="mt-2 p-3 rounded" style="background-color: #1e293b; border: 1px solid #334155; font-size: 0.85rem;">
+                <p class="mb-2 fw-bold text-white-50">Password Security Keys Matrix:</p>
+                <ul class="list-unstyled mb-0 ps-1">
+                    <li id="rule-length" class="text-danger mb-1">❌ Minimum 8 characters</li>
+                    <li id="rule-upper" class="text-danger mb-1">❌ At least one uppercase letter (A-Z)</li>
+                    <li id="rule-number" class="text-danger mb-1">❌ At least one number (0-9)</li>
+                    <li id="rule-symbol" class="text-danger mb-0">❌ At least one special symbol (@, #, $, %, etc.)</li>
+                </ul>
+            </div>
         </div>
 
         <div class="mb-4">
@@ -144,3 +154,33 @@
 
 </body>
 </html>
+<script>
+document.getElementById('reg_password').addEventListener('input', function() {
+    const val = this.value;
+    
+    // Test matches using standard regular expression rules
+    const hasLength = val.length >= 8;
+    const hasUpper  = /[A-Z]/.test(val);
+    const hasNumber = /[0-9]/.test(val);
+    const hasSymbol = /[^A-Za-z0-9]/.test(val);
+    
+    // Helper function to dynamically shift item visual state
+    function updateRule(elementId, isValid) {
+        const el = document.getElementById(elementId);
+        if (isValid) {
+            el.classList.remove('text-danger');
+            el.classList.add('text-success');
+            el.innerHTML = el.innerHTML.replace('❌', '✅');
+        } else {
+            el.classList.remove('text-success');
+            el.classList.add('text-danger');
+            el.innerHTML = el.innerHTML.replace('✅', '❌');
+        }
+    }
+    
+    updateRule('rule-length', hasLength);
+    updateRule('rule-upper', hasUpper);
+    updateRule('rule-number', hasNumber);
+    updateRule('rule-symbol', hasSymbol);
+});
+</script>

@@ -1,10 +1,26 @@
 import os
 import sqlite3
+import re
 from flask import Flask, render_template, request, redirect, url_for, session
+from flask_mail import Mail
+from flask_mail import Message
 from werkzeug.utils import secure_filename
+import random
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_sacco_key_replace_this_in_production'
+
+# 📧 EMAIL SERVER CONFIGURATION
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'lexwanys@gmail.com'
+app.config['MAIL_PASSWORD'] = 'wjfy bqaz tssp opad'
+app.config['MAIL_DEFAULT_SENDER'] = (
+    'WealthArc SACCO', 'lexwanys@gmail.com')
+
+mail = Mail(app)
 
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -58,22 +74,33 @@ def home_page():
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip()
         password = request.form.get('password')
 
         conn = get_db_connection()
+        # Find the user by email first
         user = conn.execute(
-            'SELECT * FROM users WHERE email = ? AND password = ?', (email, password)).fetchone()
+            'SELECT * FROM users WHERE email = ?', (email,)).fetchone()
         conn.close()
 
-        if user:
-            # 🔒 VERIFICATION ENFORCEMENT GATE:
-            if user['role'] == 'admin' and user['is_approved'] == 0:
-                return "⚠️ Access Denied: Your administrator account is currently pending clearance from the Super Admin dashboard.", 403
+        # 🔥 SECURE UPGRADE: Check if user exists AND verify the hashed password matches
+        if user and check_password_hash(user['password'], password):
 
-            session['user_email'] = user['email']
-            session['user_role'] = user['role']
-            return redirect(url_for('home_page'))
+            # Check if admin is approved by Super Admin
+            if user['is_approved'] == 0:
+                return "❌ Access Denied: Your account is pending Super Admin clearance.", 403
+
+            # Log the user into the session safely
+            session['user'] = user['email']
+            session['role'] = user['role']
+
+            # Route to correct dashboard panel
+            if user['role'] == 'super_admin':
+                return redirect(url_for('super_admin_dashboard'))
+            elif user['role'] == 'admin':
+                return redirect(url_for('admin_dashboard'))
+            else:
+                return redirect(url_for('member_dashboard'))
         else:
             return "Invalid Credentials! Please try again.", 401
 
@@ -83,7 +110,7 @@ def login_page():
 @app.route('/register', methods=['GET', 'POST'])
 def register_page():
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip()
         password = request.form.get('password')
         first_name = request.form.get('first_name')
         last_name = request.form.get('last_name')
@@ -91,37 +118,105 @@ def register_page():
         dob = request.form.get('dob')
         target_role = request.form.get('role', 'member')
 
-        # New admin signups drop in locked down (0), standard members auto-pass (1)
-        approval_status = 0 if target_role == 'admin' else 1
+        # Email format validation guard
+        # Email format validation guard
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, email):
+            return "❌ Registration Failed: Please provide a valid email address.", 400
 
-        profile_pic_filename = 'default.png'
-        if 'profile_pic' in request.files:
-            file = request.files['profile_pic']
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                unique_filename = f"{email.replace('@', '_').replace('.', '_')}_{filename}"
-                file.save(os.path.join(
-                    app.config['UPLOAD_FOLDER'], unique_filename))
-                profile_pic_filename = unique_filename
+        # 🔄 REPLACE YOUR OLD PASSWORD CHECK WITH THIS ENTIRE COMPLEXITY BLOCK:
+        if len(password) < 8:
+            return "❌ Registration Failed: Password must be at least 8 characters long.", 400
+        if not any(char.isupper() for char in password):
+            return "❌ Registration Failed: Password must contain at least one uppercase letter (A-Z).", 400
+        if not any(char.isdigit() for char in password):
+            return "❌ Registration Failed: Password must contain at least one digit (0-9).", 400
+        if not any(not char.isalnum() for char in password):
+            return "❌ Registration Failed: Password must contain at least one special character symbol.", 400
 
+        # Check if email is already taken before sending a code
         conn = get_db_connection()
-        try:
-            conn.execute("""
-                INSERT INTO users (email, password, role, balance, loan_balance, first_name, last_name, phone, dob, profile_pic, is_approved)
-                VALUES (?, ?, ?, 0.0, 0.0, ?, ?, ?, ?, ?, ?)
-            """, (email, password, target_role, first_name, last_name, phone, dob, profile_pic_filename, approval_status))
-            conn.commit()
-        except sqlite3.IntegrityError:
-            conn.close()
-            return "Error: An account with that email address already exists!", 400
-
+        existing_user = conn.execute(
+            'SELECT email FROM users WHERE email = ?', (email,)).fetchone()
         conn.close()
+        if existing_user:
+            return "❌ Error: An account with that email already exists!", 400
 
-        if target_role == 'admin':
-            return "🎉 Account requested successfully! Please notify your Super Admin to approve your terminal profile before logging in."
-        return redirect(url_for('login_page'))
+        # 🎲 GENERATE 6-DIGIT VERIFICATION CODE
+        verification_code = str(random.randint(100000, 999999))
+
+        # Store form data and code temporarily inside the secure session memory
+        session['temp_registration'] = {
+            'email': email, 'password': password, 'first_name': first_name,
+            'last_name': last_name, 'phone': phone, 'dob': dob, 'role': target_role
+        }
+        session['verification_code'] = verification_code
+
+        # 📧 SEND THE EMAIL
+        try:
+            msg = Message("WealthArc SACCO - Verify Your Account Registration",
+                          recipients=[email])
+            msg.body = f"Hello {first_name},\n\nThank you for signing up with WealthArc SACCO.\nYour 2-Step Verification code is: {verification_code}\n\nPlease enter this code on the verification screen to activate your account."
+            mail.send(msg)
+        except Exception as e:
+            return f"❌ Failed to send verification email. Check server setup. Error: {e}", 500
+
+        # Passcode dispatched! Forward them to the entry validation field pad
+        return redirect(url_for('verify_code_page'))
 
     return render_template('register.html')
+
+
+@app.route('/verify-code', methods=['GET', 'POST'])
+def verify_code_page():
+    # If the user somehow loses their session data, kick them back to register safely
+    if 'temp_registration' not in session or 'verification_code' not in session:
+        return redirect(url_for('register_page'))
+
+    if request.method == 'POST':
+        user_input_code = request.form.get('code', '').strip()
+
+        # Check if the code matches what we stored in memory
+        # Check if the code matches what we stored in memory
+        if user_input_code == session.get('verification_code'):
+            reg_data = session['temp_registration']
+            approval_status = 0 if reg_data['role'] == 'admin' else 1
+
+            # 🔥 SECURE UPGRADE: Hash the raw password string
+            secure_hashed_password = generate_password_hash(
+                reg_data['password'])
+
+            conn = get_db_connection()
+            try:
+                conn.execute("""
+                    INSERT INTO users (email, password, role, first_name, last_name, phone, dob, is_approved)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (reg_data['email'],
+                      secure_hashed_password,  # 👈 Save the encrypted fingerprint instead!
+                      reg_data['role'],
+                      reg_data['first_name'], reg_data['last_name'], reg_data['phone'], reg_data['dob'], approval_status))
+                conn.commit()
+            except sqlite3.Error as database_err:
+                conn.close()
+                return f"❌ Database Save Error: {database_err}", 400
+            conn.close()
+
+            # Clean up session memory on SUCCESS
+            session.pop('temp_registration', None)
+            session.pop('verification_code', None)
+
+            if reg_data['role'] == 'admin':
+                return "🎉 Email Verified! Your administrator account is now pending clearance from the Super Admin."
+
+            return redirect(url_for('login_page'))
+        else:
+            # 💡 FIXED: Instead of crashing on a raw text page, we reload the page
+            # and show a clean alert without wiping the session data!
+            return render_template('verify.html',
+                                   email=session['temp_registration']['email'],
+                                   error="❌ Invalid Verification Code! Please double-check your spam or inbox and try again.")
+
+    return render_template('verify.html', email=session['temp_registration']['email'])
 
 # =====================================================================
 # 3. SUPER ADMIN COMMAND OVERRIDES
