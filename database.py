@@ -1,51 +1,57 @@
 import sqlite3
 
+
 def init_db():
-    # Connect to SQLite database (it will create the file if it doesn't exist)
     conn = sqlite3.connect('sacco.db')
     cursor = conn.cursor()
 
-    # 1. Create the Users table
+    # Create Users table with ALL columns used in your app.py
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            role TEXT DEFAULT 'member', -- Can be 'member' or 'admin'
-            balance REAL DEFAULT 0.0
+            role TEXT DEFAULT 'member',
+            balance REAL DEFAULT 0.0,
+            loan_balance REAL DEFAULT 0.0,
+            first_name TEXT DEFAULT 'Member',
+            last_name TEXT DEFAULT '',
+            phone TEXT DEFAULT '',
+            dob TEXT DEFAULT '',
+            is_approved INTEGER DEFAULT 0,
+            profile_pic TEXT DEFAULT 'default.png'
         )
     ''')
 
-    # 2. Create the Payments table
+    # Payments table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS payments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_email TEXT NOT NULL,
             amount REAL NOT NULL,
             reference_number TEXT NOT NULL,
-            status TEXT DEFAULT 'Pending', -- Can be 'Pending', 'Approved', or 'Rejected'
+            status TEXT DEFAULT 'Pending',
             date_submitted DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_email) REFERENCES users (email)
         )
     ''')
 
-    # Insert a sample Admin and Member just so we have data to test with later
-    try:
-        # Default Admin login: admin@sacco.com / password: admin123
-        cursor.execute("INSERT INTO users (email, password, role) VALUES (?, ?, ?)", 
-                       ('admin@sacco.com', 'admin123', 'admin'))
-        
-        # Default Member login: member@sacco.com / password: member123
-        cursor.execute("INSERT INTO users (email, password, role, balance) VALUES (?, ?, ?, ?)", 
-                       ('member@sacco.com', 'member123', 'member', 1500.00))
-        
-        conn.commit()
-        print("Database initialized successfully with sample users!")
-    except sqlite3.IntegrityError:
-        # This prevents errors if you run the script more than once
-        print("Database already exists and is ready.")
-        
+    # Settings table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value REAL NOT NULL
+        )
+    ''')
+
+    # Set default interest rate
+    cursor.execute(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('interest_rate', 0.01)")
+
+    conn.commit()
     conn.close()
+    print("Database initialized successfully with all columns.")
+
 
 if __name__ == '__main__':
     init_db()

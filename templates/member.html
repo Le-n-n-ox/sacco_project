@@ -9,32 +9,20 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f4f7fa; color: #1e293b; }
         .navbar-custom { background: #0f172a; padding: 18px; border-bottom: 4px solid #0284c7; }
-        
-        /* Premium Dashboard Widgets */
         .card-premium { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 25px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); }
         .profile-hero { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; position: relative; overflow: hidden; }
         .profile-hero::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #3b82f6; }
-        
-        /* Shared Pool Metrics Card */
-        .metric-card-pool { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; border-radius: 16px; padding: 25px; position: relative; }
-        .metric-card-pool .badge-live { background-color: #0ea5e9; color: white; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; padding: 5px 10px; border-radius: 50px; text-transform: uppercase; }
-        
-        /* User Balance Card */
-        .metric-card-user { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; border-radius: 16px; padding: 25px; }
-        
-        /* Design Components */
-        .avatar-img { width: 85px; height: 85px; border-radius: 50%; object-fit: cover; border: 4px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .avatar-img { width: 85px; height: 85px; border-radius: 50%; object-fit: cover; border: 4px solid #f1f5f9; }
         .leaderboard-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background-color: #f1f5f9; }
-        .form-control { padding: 12px 16px; border-radius: 10px; border: 1px solid #cbd5e1; background-color: #f8fafc; font-size: 0.95rem; }
-        .form-control:focus { background-color: #ffffff; border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
+        .form-control { padding: 12px 16px; border-radius: 10px; border: 1px solid #cbd5e1; background-color: #f8fafc; }
         .btn-action { background: #2563eb; color: white; font-weight: 600; padding: 12px; border-radius: 10px; border: none; transition: all 0.2s ease; }
-        .btn-action:hover { background: #1d4ed8; transform: translateY(-1px); }
-        
-        /* Leaderboard styling */
         .leaderboard-row { border-bottom: 1px solid #f1f5f9; transition: background 0.2s ease; }
         .leaderboard-row:hover { background-color: #f8fafc; }
-        .rank-number { font-weight: 800; font-size: 0.95rem; color: #64748b; width: 24px; }
-        .top-three { color: #f59e0b; }
+        .calc-wrapper { max-width: 550px; margin: auto; }
+        .calc-card { background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%); border-radius: 24px; padding: 30px; color: #f8fafc; }
+        .slider-label { font-weight: 600; color: #94a3b8; display: flex; justify-content: space-between; }
+        .slider-val { color: #38bdf8; font-weight: 700; }
+        .result-box { background: #0f172a; border: 1px dashed #38bdf8; border-radius: 16px; padding: 20px; }
     </style>
 </head>
 <body>
@@ -42,166 +30,112 @@
 <nav class="navbar navbar-custom shadow-sm mb-4">
     <div class="container d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
-            <img src="/static/uploads/{{ user['profile_pic'] }}" 
-                 alt="User Icon" 
-                 style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid #0284c7; background-color: #f1f5f9;"
-                 onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png';">
-            <span class="navbar-brand text-white fw-extrabold m-0 tracking-tight">SACCO Member Hub</span>
+            <img src="/static/uploads/{{ user['profile_pic'] }}" alt="User" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid #0284c7; background-color: #f1f5f9;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png';">
+            <span class="navbar-brand text-white fw-extrabold m-0">SACCO Member Hub</span>
         </div>
-        <a href="/" class="btn btn-outline-light btn-sm px-4 fw-semibold rounded-pill">Log Out</a>
+        <a href="/logout" class="btn btn-outline-light btn-sm px-4 fw-semibold rounded-pill">Log Out</a>
     </div>
 </nav>
 
 <div class="container mb-5">
-    
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card-premium h-100 shadow-sm border-start border-primary border-4 py-3">
-                <span class="text-muted small fw-bold tracking-wider uppercase d-block mb-1">Savings Pool</span>
-                <h4 class="fw-extrabold m-0 text-dark">Ksh {{ total_pool }}</h4>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card-premium h-100 shadow-sm border-start border-danger border-4 py-3">
-                <span class="text-muted small fw-bold tracking-wider uppercase d-block mb-1">Global Loans</span>
-                <h4 class="fw-extrabold m-0 text-danger">Ksh {{ total_loans }}</h4>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card-premium h-100 shadow-sm border-start border-success border-4 py-3">
-                <span class="text-muted small fw-bold tracking-wider uppercase d-block mb-1">Your Savings</span>
-                <h4 class="fw-extrabold m-0 text-success">Ksh {{ user['balance'] }}</h4>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card-premium h-100 shadow-sm border-start border-warning border-4 py-3">
-                <span class="text-muted small fw-bold tracking-wider uppercase d-block mb-1">Your Active Loan</span>
-                <h4 class="fw-extrabold m-0 text-warning">Ksh {{ user['loan_balance'] }}</h4>
-            </div>
-        </div>
-    </div>
-
     <ul class="nav nav-pills mb-4 bg-white p-2 rounded-3 shadow-sm border d-inline-flex" id="dashboardTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active fw-bold px-4" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">💼 Personal Hub</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link fw-bold px-4" id="leaderboard-tab" data-bs-toggle="tab" data-bs-target="#leaderboard" type="button" role="tab">🏆 Group Standings</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link fw-bold px-4" id="ledger-tab" data-bs-toggle="tab" data-bs-target="#ledger" type="button" role="tab">📋 Audit Statement Logs</button>
-        </li>
+        <li class="nav-item"><button class="nav-link active fw-bold px-4" data-bs-toggle="tab" data-bs-target="#overview" type="button">💼 Personal Hub</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold px-4" data-bs-toggle="tab" data-bs-target="#leaderboard" type="button">🏆 Group Standings</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold px-4" data-bs-toggle="tab" data-bs-target="#ledger" type="button">📋 Audit Logs</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold px-4" data-bs-toggle="tab" data-bs-target="#calculator" type="button">🧮 Loan Calc</button></li>
     </ul>
 
-    <div class="tab-content" id="dashboardTabsContent">
-        
-        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="overview">
             <div class="row g-4">
                 <div class="col-lg-5">
-                    <div class="profile-hero shadow-sm d-flex align-items-center gap-4 bg-white p-4 rounded-4">
-                        <img src="/static/uploads/{{ user['profile_pic'] }}" class="avatar-img" alt="Avatar" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png';">
-                        <div>
-                            <h4 class="fw-extrabold text-slate-900 m-0">{{ user['first_name'] }} {{ user['last_name'] }}</h4>
-                            <p class="text-muted small m-0 mb-2">{{ user['email'] }}</p>
-                            <div class="small text-secondary">
-                                <div><strong>📞 Phone:</strong> {{ user['phone'] }}</div>
-                                <div><strong>🎂 DOB:</strong> {{ user['dob'] }}</div>
-                            </div>
-                        </div>
+                    <div class="profile-hero shadow-sm p-4 rounded-4">
+                        <h4>{{ user['first_name'] }} {{ user['last_name'] }}</h4>
+                        <p class="text-muted">{{ user['email'] }}</p>
+                    </div>
+                    <div class="card-premium mt-3">
+                        <h6 class="fw-bold mb-3">Update Profile Picture</h6>
+                        <form action="/upload_profile_pic" method="POST" enctype="multipart/form-data">
+                            <input type="file" name="profile_pic" class="form-control mb-2" accept="image/*" required>
+                            <button type="submit" class="btn btn-action w-100">Upload</button>
+                        </form>
                     </div>
                 </div>
                 <div class="col-lg-7">
-                    <div class="card-premium shadow-sm bg-white p-4 rounded-4">
-                        <h5 class="fw-bold mb-3 text-dark">📥 File Deposit Statement</h5>
+                    <div class="card-premium p-4">
+                        <h5 class="fw-bold mb-3">Log Contribution</h5>
                         <form action="/submit_payment" method="POST">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <input type="number" name="amount" class="form-control" placeholder="Amount to Load (Ksh)" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <input type="text" name="reference_number" class="form-control" placeholder="M-Pesa / Bank Reference" style="text-transform: uppercase;" required>
-                                </div>
-                                <div class="col-12">
-                                    <button type="submit" class="btn btn-action w-100">Log Contribution Statement</button>
-                                </div>
-                            </div>
+                            <input type="number" name="amount" class="form-control mb-3" placeholder="Amount (Ksh)" required>
+                            <input type="text" name="reference_number" class="form-control mb-3" placeholder="Reference Number" required>
+                            <button type="submit" class="btn btn-action w-100">Submit Contribution</button>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="tab-pane fade" id="leaderboard" role="tabpanel">
-            <div class="card-premium shadow-sm bg-white p-4 rounded-4">
-                <h5 class="fw-bold text-dark mb-3">🏆 Shareholder Registry Overview</h5>
-                <div class="table-responsive" style="max-height: 400px;">
-                    <table class="table align-middle m-0">
-                        <thead>
-                            <tr class="table-light small text-uppercase text-secondary">
-                                <th class="text-center" style="width: 70px;">Rank</th>
-                                <th>Shareholder Name</th>
-                                <th class="text-end">Savings Balance</th>
-                                <th class="text-end">Active Debt</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for member in community %}
-                            <tr class="leaderboard-row">
-                                <td class="text-center fw-bold text-secondary">#{{ loop.index }}</td>
-                                <td class="d-flex align-items-center gap-3 py-2.5">
-                                    <img src="/static/uploads/{{ member['profile_pic'] }}" class="leaderboard-avatar" alt="" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png';">
-                                    <span class="fw-semibold">{{ member['first_name'] }} {{ member['last_name'] }}</span>
-                                </td>
-                                <td class="text-end fw-bold text-success">Ksh {{ member['balance'] }}</td>
-                                <td class="text-end fw-bold text-danger">Ksh {{ member['loan_balance'] }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="tab-pane fade" id="ledger" role="tabpanel">
-            <div class="card-premium shadow-sm bg-white p-4 rounded-4">
-                <h5 class="fw-bold mb-3 text-dark">📋 Historical Transaction Archive</h5>
+        <div class="tab-pane fade" id="leaderboard">
+            <div class="card-premium shadow-sm">
+                <h5 class="fw-bold text-dark mb-3">🏆 Shareholder Registry</h5>
                 <div class="table-responsive">
-                    <table class="table align-middle m-0">
-                        <thead class="table-light small text-uppercase text-secondary">
-                            <tr>
-                                <th>Ref ID</th>
-                                <th>Funds</th>
-                                <th>Gateway Statement Reference</th>
-                                <th class="text-end">Verification Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for p in payments %}
-                            <tr>
-                                <td class="text-muted small">#{{ p['id'] }}</td>
-                                <td class="fw-bold text-slate-800">Ksh {{ p['amount'] }}</td>
-                                <td><code>{{ p['reference_number'] }}</code></td>
-                                <td class="text-end">
-                                    {% if p['status'] == 'Approved' %}
-                                        <span class="badge bg-success-subtle text-success px-3 py-1.5 rounded-pill">Confirmed</span>
-                                    {% elif p['status'] == 'Rejected' %}
-                                        <span class="badge bg-danger-subtle text-danger px-3 py-1.5 rounded-pill">Dropped</span>
-                                    {% else %}
-                                        <span class="badge bg-warning-subtle text-warning px-3 py-1.5 rounded-pill">Awaiting Verification</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
+                    <table class="table align-middle">
+                        <thead class="table-light text-uppercase small text-muted"><tr><th>Rank</th><th>Name</th><th class="text-end">Balance</th></tr></thead>
+                        <tbody>{% for m in community %}<tr class="leaderboard-row"><td class="fw-bold">#{{ loop.index }}</td><td class="d-flex align-items-center gap-3 py-2"><img src="/static/uploads/{{ m['profile_pic'] }}" class="leaderboard-avatar" onerror="this.src='https://ui-avatars.com/api/?name={{ m['first_name'] }}';"> {{ m['first_name'] }} {{ m['last_name'] }}</td><td class="text-end fw-bold text-success">Ksh {{ m['balance'] }}</td></tr>{% endfor %}</tbody>
                     </table>
                 </div>
             </div>
         </div>
 
+        <div class="tab-pane fade" id="ledger">
+            <div class="card-premium shadow-sm">
+                <h5 class="fw-bold text-dark mb-3">📋 Historical Transactions</h5>
+                <table class="table align-middle">
+                    <thead class="table-light text-uppercase small text-muted"><tr><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody>{% for p in payments %}<tr><td class="fw-bold">Ksh {{ p['amount'] }}</td><td><span class="badge {{ 'bg-success' if p['status'] == 'Approved' else 'bg-warning' }}">{{ p['status'] }}</span></td></tr>{% endfor %}</tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="calculator">
+            <div class="calc-wrapper">
+                <div class="calc-card">
+                    <h4 class="text-center fw-bold mb-4">Loan Calculator</h4>
+                    <span id="js-interest-rate" style="display:none;">{{ interest_rate }}</span>
+                    <div class="mb-4">
+                        <div class="slider-label"><span>Amount</span><span class="slider-val">KES <span id="amount-display">50,000</span></span></div>
+                        <input type="range" class="form-range" id="loan-amount" min="10000" max="1000000" step="5000" value="50000">
+                    </div>
+                    <div class="mb-4">
+                        <div class="slider-label"><span>Period</span><span class="slider-val"><span id="period-display">12</span> Months</span></div>
+                        <input type="range" class="form-range" id="loan-period" min="3" max="36" value="12">
+                    </div>
+                    <div class="result-box text-center row">
+                        <div class="col-6"><span>Monthly</span><h5 class="text-info">KES <span id="monthly-payment">0</span></h5></div>
+                        <div class="col-6"><span>Interest</span><h5 class="text-warning">KES <span id="total-interest">0</span></h5></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+<script>
+    function calculateLoan() {
+        const principal = parseFloat(document.getElementById('loan-amount').value);
+        const months = parseInt(document.getElementById('loan-period').value);
+        const monthlyInterestRate = parseFloat(document.getElementById('js-interest-rate').innerText);
+        
+        document.getElementById('amount-display').innerText = principal.toLocaleString();
+        document.getElementById('period-display').innerText = months;
+        
+        const totalInterest = principal * monthlyInterestRate * months;
+        document.getElementById('monthly-payment').innerText = Math.round((principal + totalInterest) / months).toLocaleString();
+        document.getElementById('total-interest').innerText = Math.round(totalInterest).toLocaleString();
+    }
+    document.getElementById('loan-amount').addEventListener('input', calculateLoan);
+    document.getElementById('loan-period').addEventListener('input', calculateLoan);
+    calculateLoan();
+</script>
 </body>
 </html>

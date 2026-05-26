@@ -93,7 +93,11 @@
                     {% for member in members %}
                     <tr style="border-bottom: 1px solid #f1f5f9;">
                         <td>
-                            <img src="/static/uploads/{{ member['profile_pic'] }}" class="admin-avatar-thumb" alt="" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png';">
+                            {% if member['profile_pic'] and member['profile_pic'] != 'None' and member['profile_pic'] != '' %}
+                                <img src="/static/uploads/{{ member['profile_pic'] }}" class="admin-avatar-thumb" alt="Profile">
+                            {% else %}
+                                <img src="https://ui-avatars.com/api/?name={{ member['first_name'] }}+{{ member['last_name'] }}&background=0f172a&color=fff&bold=true" class="admin-avatar-thumb" alt="Avatar Placeholder">
+                            {% endif %}
                         </td>
                         <td class="fw-medium text-slate-900">{{ member['first_name'] }} {{ member['last_name'] }}</td>
                         <td class="text-muted small">{{ member['email'] }}</td>
