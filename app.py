@@ -80,17 +80,29 @@ def login_page():
             'SELECT * FROM users WHERE email = ?', (email,)).fetchone()
         conn.close()
 
-        if user and check_password_hash(user['password'], password):
-            if user['role'] == 'admin' and int(user['is_approved']) != 1:
-                return redirect(url_for('login_page'))
+        # 🔍 TERMINAL DIAGNOSTICS: Prints directly to your console to detect database state mismatches
+        print("\n=== SACCO GATEWAY VALIDATION ===")
+        print(f"Target Email Entered: {email}")
+        print(f"User Record Located?: {'YES' if user else 'NO'}")
+        if user:
+            print(f"Assigned DB Role   : {user['role']}")
+            print(
+                f"Cryptographic Match : {check_password_hash(user['password'], password)}")
+        print("=================================\n")
 
-            # 🔐 UNIFIED SESSION FIX: Populates both key styles so all legacy operations work perfectly
+        if user and check_password_hash(user['password'], password):
+            # Block unapproved standard administrators
+            if user['role'] == 'admin' and int(user['is_approved']) != 1:
+                return "Account pending approval from Super Admin.", 403
+
+            # 🔐 UNIFIED SESSION ARRAYS: Populates both styles safely
             session['user'] = user['email']
             session['user_email'] = user['email']
             session['role'] = user['role']
             session['user_role'] = user['role']
             return redirect(url_for('home_page'))
 
+        # If password hash check fails, reload login page cleanly
         return redirect(url_for('login_page'))
 
     return render_template('login.html')
@@ -282,29 +294,18 @@ def admin_dashboard():
         return redirect(url_for('login_page'))
 
     conn = get_db_connection()
-
-    # 👥 1. Fetch SACCO Shareholder Registry
     users = conn.execute(
         "SELECT * FROM users WHERE role = 'member'").fetchall()
-
-    # ⏳ 2. Fetch Incoming Verification Pipeline (Matches: {% for p in pending %})
-    # Targets records where no explicit action has been committed yet
     pending_payments = conn.execute("""
         SELECT * FROM payments 
         WHERE status = 'Pending' OR status = 'pending' OR status IS NULL
     """).fetchall()
-
-    # 🕒 3. Fetch System-Wide Ledger History (Matches: {% for h in history %})
     ledger_history = conn.execute(
         "SELECT * FROM payments ORDER BY id DESC").fetchall()
-
-    # 📊 4. Fetch Asset Pool Summation (Matches: {{ total_pool }})
     pool_sum = conn.execute(
         'SELECT SUM(balance) FROM users WHERE role = "member"').fetchone()[0] or 0.0
-
     conn.close()
 
-    # Exact key assignment matching your admin.html layout constraints
     return render_template('admin.html',
                            members=users,
                            pending=pending_payments,
@@ -458,8 +459,6 @@ def upload_profile_pic():
         return "❌ Error: No file selected.", 400
 
     if file and allowed_file(file.filename):
-        from werkzeug.utils import secure_filename
-        import os
         email_prefix = session['user_email'].split('@')[0]
         filename = secure_filename(f"{email_prefix}_{file.filename}")
 
@@ -471,9 +470,7 @@ def upload_profile_pic():
         conn.commit()
         conn.close()
 
-        # Force the session data to refresh the image immediately
         session['profile_pic'] = filename
-
         return redirect(url_for('member_dashboard'))
 
     return "❌ Error: Invalid file type.", 400
@@ -481,7 +478,6 @@ def upload_profile_pic():
 
 @app.route('/update_interest_rate', methods=['POST'])
 def update_interest_rate():
-    # Basic check to ensure the user is the admin
     if session.get('user_role') != 'admin':
         return "Unauthorized", 403
 

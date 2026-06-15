@@ -1,121 +1,334 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Admin Headquarters</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Super Admin Headquarters | WealthArc</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f172a; color: #f8fafc; }
-        .navbar-brand { font-weight: 800; color: #38bdf8; }
-        .panel-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
-        .table-dark { --bs-table-bg: #1e293b; border-color: #334155; }
-        .badge-pending { background-color: #f59e0b; color: #0f172a; font-weight: 700; }
-        .badge-active { background-color: #10b981; color: #fff; font-weight: 600; }
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        background-color: #0b0f19;
+        color: #ffffff;
+      }
+      .navbar {
+        background-color: #020617 !important;
+        border-bottom: 1px solid #1e293b !important;
+      }
+      .navbar-brand {
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+      .panel-card {
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 16px;
+        padding: 28px;
+        box-shadow:
+          0 4px 6px -1px rgba(0, 0, 0, 0.2),
+          0 2px 4px -2px rgba(0, 0, 0, 0.2);
+      }
+      .kpi-card {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 20px;
+      }
+      .table-dark {
+        --bs-table-bg: #111827;
+        --bs-table-hover-bg: #1e293b;
+        border-color: #1e293b;
+      }
+      .table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #ffffff;
+        font-weight: 700;
+        padding-bottom: 12px;
+      }
+      .table td {
+        padding: 14px 12px;
+        font-size: 0.9rem;
+        color: #ffffff !important;
+      }
+      .badge-pending {
+        background-color: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        font-weight: 600;
+        padding: 6px 12px;
+      }
+      .badge-active {
+        background-color: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        font-weight: 600;
+        padding: 6px 12px;
+      }
+      .badge-role {
+        font-weight: 600;
+        padding: 5px 10px;
+        font-size: 0.75rem;
+      }
+      .btn {
+        transition: all 0.2s ease-in-out;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .dashed-placeholder {
+        border: 2px dashed #334155 !important;
+        background: rgba(30, 41, 59, 0.2);
+      }
+      code {
+        color: #ffffff !important;
+        background-color: #1e293b;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
+    <nav class="navbar navbar-dark sticky-top py-3 mb-5">
+      <div class="container">
+        <a class="navbar-brand text-white d-flex align-middle gap-2" href="#">
+          <i class="bi bi-shield-fill-check"></i> WEALTHARC CENTRAL GATEWAY
+        </a>
+        <div class="d-flex align-items-center gap-4">
+          <span class="navbar-text text-white small d-none d-md-inline">
+            Secure Session: <strong class="text-white">Super Admin Node</strong>
+          </span>
+          <a
+            href="{{ url_for('logout') }}"
+            class="btn btn-outline-light btn-sm px-3 fw-semibold"
+          >
+            <i class="bi bi-box-arrow-right me-1"></i> Terminate Session
+          </a>
+        </div>
+      </div>
+    </nav>
 
-<nav class="navbar navbar-dark bg-black py-3 border-bottom border-secondary mb-5">
     <div class="container">
-        <a class="navbar-brand" href="#">👑 WEALTHARC CENTRAL GATEWAY</a>
-        <span class="navbar-text text-white-50 small">Secure Session: <strong>Super Admin Profile</strong></span>
-    </div>
-</nav>
+      <div class="row g-4 mb-5">
+        <div class="col-md-4">
+          <div
+            class="kpi-card d-flex align-items-center justify-content-between"
+          >
+            <div>
+              <p class="text-white small uppercase fw-bold mb-1">
+                Pending Clearance
+              </p>
+              <h3 class="mb-0 fw-bold text-white">
+                {{ pending_admins|length }}
+              </h3>
+            </div>
+            <div class="fs-2 text-white opacity-75">
+              <i class="bi bi-person-fill-exclamation"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div
+            class="kpi-card d-flex align-items-center justify-content-between"
+          >
+            <div>
+              <p class="text-white small uppercase fw-bold mb-1">
+                Active Directory Size
+              </p>
+              <h3 class="mb-0 fw-bold text-white">{{ active_users|length }}</h3>
+            </div>
+            <div class="fs-2 text-white opacity-75">
+              <i class="bi bi-people-fill"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div
+            class="kpi-card d-flex align-items-center justify-content-between"
+          >
+            <div>
+              <p class="text-white small uppercase fw-bold mb-1">
+                System Architecture
+              </p>
+              <h3 class="mb-0 fw-bold text-white">Online</h3>
+            </div>
+            <div class="fs-2 text-white opacity-75">
+              <i class="bi bi-cpu-fill"></i>
+            </div>
+          </div>
+        </div>
+      </div>
 
-<div class="container">
-    <div class="panel-card mb-5">
-        <h4 class="text-warning fw-bold mb-3">🚨 Pending Administrative Clearance Approvals</h4>
-        <p class="text-muted small">The accounts listed below registered as system administrators and require your signature validation before they can log into their dashboards.</p>
-        
+      <div class="panel-card mb-5">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-exclamation-triangle-fill text-white fs-4"></i>
+          <h4 class="text-white fw-bold mb-0">
+            Pending Administrative Clearance Approvals
+          </h4>
+        </div>
+        <p class="text-white small mb-4">
+          The accounts listed below registered as system administrators and
+          require explicit cryptographic validation signature confirmation
+          before they are permitted access to localized financial operational
+          environments.
+        </p>
+
         {% if pending_admins %}
         <div class="table-responsive">
-            <table class="table table-dark table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Applicant Name</th>
-                        <th>Email Contact</th>
-                        <th>Phone Number</th>
-                        <th>Date of Birth</th>
-                        <th class="text-end">Verification Decision</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for admin in pending_admins %}
-                    <tr>
-                        <td class="fw-semibold text-white">{{ admin['first_name'] }} {{ admin['last_name'] }}</td>
-                        <td><code class="text-info">{{ admin['email'] }}</code></td>
-                        <td>{{ admin['phone'] }}</td>
-                        <td>{{ admin['dob'] }}</td>
-                        <td class="text-end">
-                            <form action="/super-admin/approve/{{ admin['email'] }}" method="POST" class="d-inline">
-                                <button type="submit" class="btn btn-success btn-sm px-3 fw-bold rounded-2 me-1">✓ Approve</button>
-                            </form>
-                            <form action="/super-admin/reject/{{ admin['email'] }}" method="POST" class="d-inline">
-                                <button type="submit" class="btn btn-danger btn-sm px-3 fw-bold rounded-2" onclick="return confirm('Reject and delete this applicant completely?');">✕ Deny</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Applicant Name</th>
+                <th>Email Contact</th>
+                <th>Phone Number</th>
+                <th>Date of Birth</th>
+                <th class="text-end">Verification Decision</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for admin in pending_admins %}
+              <tr>
+                <td class="fw-semibold text-white">
+                  {{ admin['first_name'] }} {{ admin['last_name'] }}
+                </td>
+                <td>
+                  <code class="px-2 py-1 rounded">{{ admin['email'] }}</code>
+                </td>
+                <td>{{ admin['phone'] }}</td>
+                <td>{{ admin['dob'] }}</td>
+                <td class="text-end">
+                  <form
+                    action="/super-admin/approve/{{ admin['email'] }}"
+                    method="POST"
+                    class="d-inline"
+                  >
+                    <button
+                      type="submit"
+                      class="btn btn-success btn-sm px-3 fw-bold rounded-2 me-1"
+                    >
+                      <i class="bi bi-check-lg me-1"></i> Approve
+                    </button>
+                  </form>
+                  <form
+                    action="/super-admin/reject/{{ admin['email'] }}"
+                    method="POST"
+                    class="d-inline"
+                  >
+                    <button
+                      type="submit"
+                      class="btn btn-danger btn-sm px-3 fw-bold rounded-2"
+                      onclick="
+                        return confirm(
+                          'Reject and permanently purge this administrative applicant registration profile?',
+                        );
+                      "
+                    >
+                      <i class="bi bi-x-lg me-1"></i> Deny
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
         {% else %}
-        <div class="text-center py-4 text-muted border border-secondary dashed rounded-3">
-            🎉 Clean slate! There are no pending administrator accounts awaiting review right now.
+        <div class="text-center py-5 text-white dashed-placeholder rounded-3">
+          <i class="bi bi-check-circle-fill text-white fs-3 mb-2 d-block"></i>
+          Clean system baseline state! No pending registrations require
+          administrative authorization signature updates at this time.
         </div>
         {% endif %}
-    </div>
+      </div>
 
-   <div class="panel-card">
-        <h5 class="text-white fw-bold mb-3">📋 Master System Directory Log</h5>
-        <p class="text-white-50 small">Comprehensive overview of all operational profiles within the SACCO infrastructure ecosystem.</p>
-        
-        <div class="table-responsive">
-            <table class="table table-dark table-striped align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Account ID Email</th>
-                        <th>User Name Details</th>
-                        <th>Assigned Authority Role</th>
-                        <th>Clearance State</th>
-                        <th class="text-end">System Action Enforcement</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in active_users %}
-                    <tr>
-                        <td><code>{{ user['email'] }}</code></td>
-                        <td>{{ user['first_name'] }} {{ user['last_name'] }}</td>
-                        <td>
-                            <span class="badge {% if user['role'] == 'admin' %}bg-info{% else %}bg-secondary{% endif %}">
-                                {{ user['role'] | upper }}
-                            </span>
-                        </td>
-                        <td>
-                            {% if user['is_approved'] == 1 %}
-                            <span class="badge badge-active">ACTIVE / APPROVED</span>
-                            {% else %}
-                            <span class="badge badge-pending">PENDING SUPER VERIFICATION</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">
-                            <form action="/super-admin/delete/{{ user['email'] }}" method="POST" class="d-inline">
-                                <button type="submit" 
-                                        class="btn btn-outline-danger btn-sm px-3 fw-bold rounded-2" 
-                                        onclick="return confirm('⚠️ CRITICAL WARNING!\n\nAre you absolutely certain you want to permanently delete account: {{ user['email'] }}?\n\nThis action completely revokes their access and cannot be undone.');">
-                                    🗑️ Remove User
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+      <div class="panel-card">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-folder-fill text-white fs-4"></i>
+          <h5 class="text-white fw-bold mb-0">
+            Master System Directory Ledger
+          </h5>
         </div>
-    </div>
-</div>
+        <p class="text-white small mb-4">
+          Comprehensive real-time tracking interface log showcasing every
+          authenticated operational identity and authority structure map located
+          within the system cluster.
+        </p>
 
-</body>
+        <div class="table-responsive">
+          <table
+            class="table table-dark table-striped table-hover align-middle mb-0"
+          >
+            <thead>
+              <tr>
+                <th>Account ID Email</th>
+                <th>User Name Details</th>
+                <th>Assigned Authority Role</th>
+                <th>Clearance State</th>
+                <th class="text-end">System Action Enforcement</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in active_users %}
+              <tr>
+                <td><code>{{ user['email'] }}</code></td>
+                <td>{{ user['first_name'] }} {{ user['last_name'] }}</td>
+                <td>
+                  <span
+                    class="badge badge-role {% if user['role'] == 'admin' %}bg-info text-dark{% else %}bg-secondary text-white{% endif %}"
+                  >
+                    <i
+                      class="bi {% if user['role'] == 'admin' %}bi-shield-lock-fill{% else %}bi-person-fill{% endif %} me-1"
+                    ></i>
+                    {{ user['role'] | upper }}
+                  </span>
+                </td>
+                <td>
+                  {% if user['is_approved'] == 1 %}
+                  <span class="badge badge-active"
+                    ><i class="bi bi-shield-check me-1"></i> ACTIVE /
+                    CLEAR</span
+                  >
+                  {% else %}
+                  <span class="badge badge-pending"
+                    ><i class="bi bi-hourglass-split me-1"></i> PENDING HIGHER
+                    APPROVAL</span
+                  >
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <form
+                    action="/super-admin/delete/{{ user['email'] }}"
+                    method="POST"
+                    class="d-inline"
+                  >
+                    <button
+                      type="submit"
+                      class="btn btn-outline-danger btn-sm px-3 fw-semibold rounded-2 text-white"
+                      onclick="return confirm('⚠️ CRITICAL ARCHITECTURAL WARNING!\n\nAre you absolutely certain you want to permanently erase user record node: {{ user['email'] }}?\n\nThis execution totally deletes all associated file trees and cannot be reversed.');"
+                    >
+                      <i class="bi bi-trash3-fill me-1"></i> Purge Profile
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>
