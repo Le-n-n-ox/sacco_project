@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_sacco_key_replace_this_in_production'
@@ -247,11 +248,14 @@ def logout():
 def member_dashboard():
     if 'user_email' not in session:
         return redirect(url_for('login_page'))
+
     email = session['user_email']
     conn = get_db_connection()
+
     rate_row = conn.execute(
         'SELECT value FROM settings WHERE key = "interest_rate"').fetchone()
     interest_rate = rate_row['value'] if rate_row else 0.01
+
     user = conn.execute(
         'SELECT * FROM users WHERE email = ?', (email,)).fetchone()
     payments = conn.execute(
@@ -262,6 +266,42 @@ def member_dashboard():
         'SELECT SUM(loan_balance) FROM users WHERE role = "member"').fetchone()[0] or 0.0
     community_members = conn.execute(
         'SELECT first_name, last_name, balance, loan_balance, profile_pic FROM users WHERE role = "member" ORDER BY balance DESC').fetchall()
+
+    # --- NEW: LOAN DATA FETCHING ---
+    try:
+        # Fetch historical and pending loan requests
+        loan_requests = conn.execute(
+            'SELECT * FROM loan_requests WHERE user_email = ? ORDER BY id DESC', (email,)).fetchall()
+
+        # Fetch active loan terms
+        active_loan_query = conn.execute(
+            'SELECT * FROM active_loans WHERE user_email = ? AND status = "Active" ORDER BY id DESC LIMIT 1', (email,)).fetchone()
+
+        # Fetch repayment schedule
+        repayment_schedule = conn.execute(
+            'SELECT * FROM repayment_schedules WHERE user_email = ? ORDER BY due_date ASC', (email,)).fetchall()
+    except sqlite3.OperationalError:
+        # Fallback: Prevents crashing if the new tables haven't been created yet
+        loan_requests = []
+        active_loan_query = None
+        repayment_schedule = []
+
+    # Format active loan data for the template UI
+    active_loan = {}
+    if active_loan_query:
+        active_loan = {
+            'interest_rate': active_loan_query['interest_rate'],
+            'monthly_payment': active_loan_query['monthly_payment'],
+            'maturity_date': active_loan_query['maturity_date']
+        }
+    elif user['loan_balance'] and user['loan_balance'] > 0:
+        # Fallback if they have a balance but no formal loan record yet
+        active_loan = {
+            'interest_rate': interest_rate * 100,
+            'monthly_payment': 'Pending Sync',
+            'maturity_date': 'Pending Sync'
+        }
+
     conn.close()
     return render_template('member.html',
                            user=user,
@@ -269,7 +309,36 @@ def member_dashboard():
                            total_pool=total_pool,
                            total_loans=total_loans,
                            community=community_members,
-                           interest_rate=interest_rate)
+                           interest_rate=interest_rate,
+                           loan_requests=loan_requests,
+                           active_loan=active_loan,
+                           repayment_schedule=repayment_schedule)
+
+
+@app.route('/apply_loan', methods=['POST'])
+def apply_loan():
+    if 'user_email' not in session:
+        return redirect(url_for('login_page'))
+
+    email = session['user_email']
+    amount = float(request.form.get('loan_amount', 0))
+    period = int(request.form.get('loan_period', 12))
+    purpose = request.form.get('loan_purpose', '').strip()
+    date_applied = datetime.now().strftime("%Y-%m-%d")
+
+    conn = get_db_connection()
+    try:
+        conn.execute('''
+            INSERT INTO loan_requests (user_email, amount, period_months, purpose, status, date_applied)
+            VALUES (?, ?, ?, ?, 'Pending', ?)
+        ''', (email, amount, period, purpose, date_applied))
+        conn.commit()
+    except sqlite3.OperationalError as e:
+        print(f"⚠️ Warning: Please create the loan_requests table! Error: {e}")
+    finally:
+        conn.close()
+
+    return redirect(url_for('member_dashboard'))
 
 
 @app.route('/submit_payment', methods=['POST'])
@@ -304,13 +373,24 @@ def admin_dashboard():
         "SELECT * FROM payments ORDER BY id DESC").fetchall()
     pool_sum = conn.execute(
         'SELECT SUM(balance) FROM users WHERE role = "member"').fetchone()[0] or 0.0
+    pending_loans = conn.execute(
+        "SELECT * FROM loan_requests WHERE status = 'Pending' ORDER BY id DESC").fetchall()
+
+    # --- NEW: Fetch current interest rate to display in the admin management form ---
+    rate_row = conn.execute(
+        'SELECT value FROM settings WHERE key = "interest_rate"').fetchone()
+    # If the database stores 0.01, we multiply by 100 to show "1.0%" in the UI input box
+    current_rate_percent = float(rate_row['value']) * 100 if rate_row else 1.0
+
     conn.close()
 
     return render_template('admin.html',
                            members=users,
                            pending=pending_payments,
                            history=ledger_history,
-                           total_pool=pool_sum)
+                           total_pool=pool_sum,
+                           pending_loans=pending_loans,
+                           current_rate=current_rate_percent)  # Injected into template rendering context
 
 
 @app.route('/update_loan', methods=['POST'])
@@ -478,19 +558,106 @@ def upload_profile_pic():
 
 @app.route('/update_interest_rate', methods=['POST'])
 def update_interest_rate():
-    if session.get('user_role') != 'admin':
-        return "Unauthorized", 403
+    current_role = session.get('role') or session.get('user_role')
+    if ('user' not in session and 'user_email' not in session) or current_role != 'admin':
+        return "Unauthorized Access!", 403
 
     new_rate_percent = float(request.form['new_rate'])
     new_rate_decimal = new_rate_percent / 100
 
     conn = get_db_connection()
-    conn.execute(
-        'UPDATE settings SET value = ? WHERE key = "interest_rate"', (new_rate_decimal,))
+
+    # Ensure the settings row exists, insert if missing, update if present
+    check_row = conn.execute(
+        'SELECT 1 FROM settings WHERE key = "interest_rate"').fetchone()
+    if check_row:
+        conn.execute(
+            'UPDATE settings SET value = ? WHERE key = "interest_rate"', (new_rate_decimal,))
+    else:
+        conn.execute(
+            'INSERT INTO settings (key, value) VALUES ("interest_rate", ?)', (new_rate_decimal,))
+
     conn.commit()
     conn.close()
 
-    return redirect(url_for('member_dashboard'))
+    # Fixed: Redirects cleanly back to the Admin Dashboard
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/approve_loan/<int:request_id>')
+def approve_loan(request_id):
+    if 'user_email' not in session or session.get('user_role') != 'admin':
+        return "Unauthorized Access!", 403
+
+    conn = get_db_connection()
+
+    # 1. Locate the pending loan application row
+    request_row = conn.execute(
+        'SELECT * FROM loan_requests WHERE id = ?', (request_id,)).fetchone()
+    if not request_row or request_row['status'] != 'Pending':
+        conn.close()
+        return "Invalid operation: Record is missing or already evaluated.", 400
+
+    user_email = request_row['user_email']
+    principal = request_row['amount']
+    period = request_row['period_months']
+
+    # 2. Retrieve system interest configurations (fallback to 1% monthly if setting is clear)
+    rate_row = conn.execute(
+        'SELECT value FROM settings WHERE key = "interest_rate"').fetchone()
+    monthly_rate = float(rate_row['value']) if rate_row else 0.01
+
+    # 3. Simple Interest Accumulation calculations
+    total_interest = principal * monthly_rate * period
+    total_repayment = principal + total_interest
+    monthly_installment = round(total_repayment / period, 2)
+
+    # Project ultimate maturation calendar boundary
+    start_date = datetime.now()
+    maturity_date = (start_date + timedelta(days=30 * period)
+                     ).strftime("%Y-%m-%d")
+
+    # 4. Atomic Transaction execution updates
+    # A. Advance status tracker flag to approved
+    conn.execute(
+        'UPDATE loan_requests SET status = "Approved" WHERE id = ?', (request_id,))
+
+    # B. Increment total outstanding loan liabilities belonging to the user profile
+    conn.execute(
+        'UPDATE users SET loan_balance = IFNULL(loan_balance, 0) + ? WHERE email = ?', (principal, user_email))
+
+    # C. Instantiate official baseline record tracking conditions
+    conn.execute('''
+        INSERT INTO active_loans (user_email, principal_amount, interest_rate, monthly_payment, maturity_date, status)
+        VALUES (?, ?, ?, ?, ?, 'Active')
+    ''', (user_email, principal, monthly_rate * 100, monthly_installment, maturity_date))
+
+    # D. Auto-generate sequential ledger tracking targets matching repayment frequency schedules
+    for i in range(1, period + 1):
+        installment_due_date = (
+            start_date + timedelta(days=30 * i)).strftime("%Y-%m-%d")
+        conn.execute('''
+            INSERT INTO repayment_schedules (user_email, amount, due_date, status)
+            VALUES (?, ?, ?, 'Pending')
+        ''', (user_email, monthly_installment, installment_due_date))
+
+    conn.commit()
+    conn.close()
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/reject_loan/<int:request_id>')
+def reject_loan(request_id):
+    if 'user_email' not in session or session.get('user_role') != 'admin':
+        return "Unauthorized Access!", 403
+
+    conn = get_db_connection()
+    conn.execute(
+        'UPDATE loan_requests SET status = "Rejected" WHERE id = ?', (request_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('admin_dashboard'))
 
 
 if __name__ == '__main__':
