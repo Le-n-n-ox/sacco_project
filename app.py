@@ -4,7 +4,7 @@ from psycopg2.extras import DictCursor
 import re
 import random
 import flask
-from flask import g
+from flask import g, jsonify, request
 from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -136,7 +136,7 @@ def login_page():
 def register_page():
     if flask.request.method == 'POST':
         email = flask.request.form.get('email', '').strip()
-        password = flask.request.form.get('password', '')
+        password = flask.request.form.get('password', '').strip()
         first_name = flask.request.form.get('first_name', '').strip()
         last_name = flask.request.form.get('last_name', '').strip()
         phone = flask.request.form.get('phone', '').strip()
@@ -199,7 +199,7 @@ def verify_code_page():
             approval_status = 0 if reg_data['role'] == 'admin' else 1
 
             secure_hashed_password = generate_password_hash(
-                reg_data['password'])
+                reg_data['password'], method='pbkdf2:sha256')
 
             conn = get_db_connection()
             cur = conn.cursor()
@@ -731,13 +731,13 @@ def reject_loan(request_id):
     return flask.redirect(flask.url_for('admin_dashboard'))
 
 
-USE_MPESA_SIMULATOR = True  # Set to False when connecting real Safaricom credentials
+USE_MPESA_SIMULATOR = False  # Set to False when connecting real Safaricom credentials
 
-MPESA_CONSUMER_KEY = "YOUR_DARADA_CONSUMER_KEY"
-MPESA_CONSUMER_SECRET = "YOUR_DARAJA_CONSUMER_SECRET"
+MPESA_CONSUMER_KEY = "I1jd5b0bjjwUGQzd0OvNz7o8A7ctjJhKVcGHNuwqCbATHfDT"
+MPESA_CONSUMER_SECRET = "kQzcLFlVZPXCfDjqw69fHrI3Ij5C2dFm1OpGkXG6jkprJqOYK71bdLhecI6GmHlM"
 MPESA_SHORTCODE = "174379"  # Default Safaricom Sandbox Paybill
 MPESA_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
-MPESA_CALLBACK_URL = "https://yourdomain.com/api/mpesa/callback"
+MPESA_CALLBACK_URL = "https://barometer-swerve-yearly.ngrok-free.dev/api/mpesa/callback"
 
 
 def get_mpesa_access_token():
@@ -850,6 +850,88 @@ def mpesa_initiate():
             return f"Gateway Error: {res_data.get('ResponseDescription')}", 400
     except Exception as e:
         return f"Connection Failed: {e}", 500
+
+
+@app.route('/api/mpesa/callback', methods=['POST'])
+def mpesa_callback():
+    """
+    Asynchronous Webhook hit by Safaricom when a user completes/cancels an STK Push.
+    """
+    stk_data = request.get_json()
+
+    # 1. Parse out critical structural fields from Safaricom response
+    body = stk_data.get('Body', {})
+    callback_data = body.get('stkCallback', {})
+
+    result_code = callback_data.get('ResultCode')
+    checkout_request_id = callback_data.get('CheckoutRequestID')
+    result_desc = callback_data.get('ResultDesc')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 2. Check if transaction failed (e.g., Code 1032 = User cancelled PIN prompt)
+    if result_code != 0:
+        cur.execute(
+            "UPDATE payments SET status = 'Failed' WHERE reference_number = %s;",
+            (checkout_request_id,)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ResultCode": 0, "ResultDescription": "Accepted"}), 200
+
+    # 3. Transaction succeeded! Extract receipt details from metadata array
+    metadata_items = callback_data.get('CallbackMetadata', {}).get('Item', [])
+    mpesa_receipt = None
+
+    for item in metadata_items:
+        if item.get('Name') == 'MpesaReceiptNumber':
+            mpesa_receipt = item.get('Value')
+            break
+
+    # Find the corresponding transaction inside our ledger
+    cur.execute(
+        "SELECT user_email, amount, payment_type, schedule_id FROM payments WHERE reference_number = %s;",
+        (checkout_request_id,)
+    )
+    payment_record = cur.fetchone()
+
+    if payment_record:
+        user_email, amount, payment_type, schedule_id = payment_record
+
+        # Mark payment entry as fully completed and attach M-Pesa receipt sequence
+        cur.execute('''
+            UPDATE payments 
+            SET status = 'Completed', reference_number = %s 
+            WHERE reference_number = %s;
+        ''', (mpesa_receipt if mpesa_receipt else checkout_request_id, checkout_request_id))
+
+        if payment_type == 'deposit':
+            # Add funds to standard user ledger balance
+            cur.execute(
+                "UPDATE users SET balance = balance + %s WHERE email = %s;",
+                (amount, user_email)
+            )
+        elif payment_type == 'loan_repayment':
+            # Deduct outstanding loan principal totals and settle targeted schedule slot
+            cur.execute(
+                "UPDATE users SET loan_balance = GREATEST(0, loan_balance - %s) WHERE email = %s;",
+                (amount, user_email)
+            )
+            if schedule_id:
+                cur.execute(
+                    "UPDATE repayment_schedules SET status = 'Paid' WHERE id = %s;",
+                    (schedule_id,)
+                )
+
+        conn.commit()
+
+    cur.close()
+    conn.close()
+
+    # Safaricom requires a 200 OK success acknowledgment back to drop the processing queue
+    return jsonify({"ResultCode": 0, "ResultDescription": "Success"}), 200
 
 
 if __name__ == '__main__':
