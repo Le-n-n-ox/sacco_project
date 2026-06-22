@@ -202,7 +202,6 @@
       </ul>
 
       <div class="tab-content">
-        <!-- 1. PERSONAL HUB TAB -->
         <div class="tab-pane fade show active" id="overview">
           <div class="row g-4">
             <div class="col-lg-5">
@@ -270,26 +269,61 @@
                 </form>
               </div>
             </div>
+
             <div class="col-lg-7">
               <div class="card-premium p-4">
-                <h5 class="fw-bold mb-3">Log Contribution</h5>
-                <form action="/submit_payment" method="POST">
-                  <input
-                    type="number"
-                    name="amount"
-                    class="form-control mb-3"
-                    placeholder="Amount (Ksh)"
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="reference_number"
-                    class="form-control mb-3"
-                    placeholder="Reference Number"
-                    required
-                  />
-                  <button type="submit" class="btn btn-action w-100">
-                    Submit Contribution
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <span class="fs-4">🪙</span>
+                  <h5 class="fw-bold m-0 text-dark">Instant M-Pesa Deposit</h5>
+                </div>
+                <p class="text-muted small mb-4">
+                  Fund your savings wallet instantly. Provide your active
+                  safaricom number below to kickstart an automated STK Push
+                  checkout sequence.
+                </p>
+                <form action="/mpesa/initiate" method="POST">
+                  <input type="hidden" name="payment_type" value="Deposit" />
+
+                  <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted"
+                      >Amount (Ksh)</label
+                    >
+                    <input
+                      type="number"
+                      name="amount"
+                      class="form-control bg-white"
+                      placeholder="e.g. 1500"
+                      min="10"
+                      required
+                    />
+                  </div>
+
+                  <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted"
+                      >M-Pesa Mobile Number</label
+                    >
+                    <input
+                      type="tel"
+                      name="phone"
+                      class="form-control bg-white"
+                      placeholder="e.g. 0712345678"
+                      value="{{ user['phone'] if user['phone'] else '' }}"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    class="btn btn-success btn-action w-100 py-3 fw-bold"
+                    style="
+                      background: linear-gradient(
+                        135deg,
+                        #10b981 0%,
+                        #059669 100%
+                      );
+                    "
+                  >
+                    Initiate Sim Checkout Prompt
                   </button>
                 </form>
               </div>
@@ -297,12 +331,9 @@
           </div>
         </div>
 
-        <!-- 2. MY LOANS TAB (NEW) -->
         <div class="tab-pane fade" id="loans">
           <div class="row g-4">
-            <!-- Left Column: Loan Status & Schedules -->
             <div class="col-lg-7">
-              <!-- ACTIVE LOAN DETAILS -->
               <div
                 class="card-premium shadow-sm mb-4"
                 style="border: 2px solid #e2e8f0"
@@ -366,15 +397,14 @@
                   </div>
                 </div>
 
-                <!-- Repayment Schedule -->
                 <h6 class="fw-bold text-dark mb-3">📅 Repayment Schedule</h6>
                 <div class="table-responsive">
                   <table class="table align-middle table-sm border">
-                    <thead class="table-light small text-muted">
+                    <thead class="table-light science-font small text-muted">
                       <tr>
                         <th>Installment Date</th>
                         <th>Amount Due</th>
-                        <th class="text-end">Status</th>
+                        <th class="text-end">Status / Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -390,10 +420,39 @@
                             >Paid</span
                           >
                           {% else %}
-                          <span
-                            class="badge bg-warning-subtle text-warning text-dark border border-warning-subtle"
-                            >Pending</span
+                          <form
+                            action="/mpesa/initiate"
+                            method="POST"
+                            class="d-inline"
                           >
+                            <input
+                              type="hidden"
+                              name="payment_type"
+                              value="Loan Repayment"
+                            />
+                            <input
+                              type="hidden"
+                              name="schedule_id"
+                              value="{{ rep['id'] }}"
+                            />
+                            <input
+                              type="hidden"
+                              name="amount"
+                              value="{{ rep['amount'] }}"
+                            />
+                            <input
+                              type="hidden"
+                              name="phone"
+                              value="{{ user['phone'] if user['phone'] else '0700000000' }}"
+                            />
+                            <button
+                              type="submit"
+                              class="btn btn-warning btn-sm fw-bold px-2 py-0 border"
+                              style="font-size: 0.75rem; border-radius: 6px"
+                            >
+                              Pay via M-Pesa
+                            </button>
+                          </form>
                           {% endif %}
                         </td>
                       </tr>
@@ -421,7 +480,6 @@
                 {% endif %}
               </div>
 
-              <!-- LOAN STATUS TRACKER -->
               <div class="card-premium shadow-sm">
                 <h5 class="fw-bold text-dark mb-3">✅ Loan Status Tracker</h5>
                 <div class="table-responsive">
@@ -478,7 +536,6 @@
               </div>
             </div>
 
-            <!-- Right Column: Loan Application Form -->
             <div class="col-lg-5">
               <div class="card-premium shadow-sm">
                 <div class="d-flex align-items-center gap-2 mb-2">
@@ -562,7 +619,6 @@
           </div>
         </div>
 
-        <!-- 3. GROUP STANDINGS TAB -->
         <div class="tab-pane fade" id="leaderboard">
           <div class="card-premium shadow-sm">
             <h5 class="fw-bold text-dark mb-3">🏆 Shareholder Registry</h5>
@@ -598,7 +654,6 @@
           </div>
         </div>
 
-        <!-- 4. AUDIT LOGS TAB -->
         <div class="tab-pane fade" id="ledger">
           <div class="card-premium shadow-sm">
             <h5 class="fw-bold text-dark mb-3">📋 Historical Transactions</h5>
@@ -626,7 +681,6 @@
           </div>
         </div>
 
-        <!-- 5. CALCULATOR TAB -->
         <div class="tab-pane fade" id="calculator">
           <div class="calc-wrapper">
             <div class="calc-card">
